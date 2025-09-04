@@ -15,7 +15,7 @@ class _BroadcasterScreenState extends State<BroadcasterScreen> {
   Map<String, RTCPeerConnection> viewers = {};
 
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
-
+  bool isFrontCameraSelected = true;
   @override
   void initState() {
     super.initState();
@@ -32,6 +32,18 @@ class _BroadcasterScreenState extends State<BroadcasterScreen> {
     });
   }
 
+  _switchCamera() {
+    // change status
+    isFrontCameraSelected = !isFrontCameraSelected;
+
+    // switch camera
+    localStream?.getVideoTracks().forEach((track) {
+      // ignore: deprecated_member_use
+      track.switchCamera();
+    });
+    setState(() {});
+  }
+
   Future<void> initRenderer() async {
     await _localRenderer.initialize();
   }
@@ -44,7 +56,7 @@ class _BroadcasterScreenState extends State<BroadcasterScreen> {
   }
 
   void connectSocket() {
-    socket = IO.io("http://192.168.29.134:5000", <String, dynamic>{
+    socket = IO.io("https://demo.syspaisa.com/", <String, dynamic>{
       "transports": ["websocket"],
       "autoConnect": false,
     });
@@ -84,7 +96,13 @@ class _BroadcasterScreenState extends State<BroadcasterScreen> {
 
   Future<void> startStream() async {
     final stream = await navigator.mediaDevices.getUserMedia({
-      "video": true,
+      "video": {
+        'facingMode': isFrontCameraSelected ? 'user' : 'environment',
+        "width": {"ideal": 1280}, // request HD
+        "height": {"ideal": 720},
+        "frameRate": {"ideal": 30}, // smoother video
+      },
+      // "video": true,
       "audio": true,
     });
     _localRenderer.srcObject = stream;
@@ -131,7 +149,17 @@ class _BroadcasterScreenState extends State<BroadcasterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Broadcaster")),
-      body: RTCVideoView(_localRenderer, mirror: true),
+      body: Column(
+        children: [
+          Expanded(
+            child: RTCVideoView(_localRenderer, mirror: isFrontCameraSelected),
+          ),
+          IconButton(
+            icon: const Icon(Icons.cameraswitch),
+            onPressed: _switchCamera,
+          ),
+        ],
+      ),
     );
   }
 }

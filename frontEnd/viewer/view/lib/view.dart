@@ -24,7 +24,7 @@ class _ViewerScreenState extends State<ViewerScreen> {
   }
 
   void connectSocket() {
-    socket = IO.io("http://192.168.29.134:5000", <String, dynamic>{
+    socket = IO.io("https://demo.syspaisa.com/", <String, dynamic>{
       "transports": ["websocket"],
       "autoConnect": false,
     });
@@ -98,12 +98,7 @@ class _ViewerScreenState extends State<ViewerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Viewer")),
-      body: Column(
-        children: [
-          RTCVideoView(_remoteRenderer, mirror: true),
-          Container(height: 150, width: double.infinity, color: Colors.teal),
-        ],
-      ),
+      body: RTCVideoView(_remoteRenderer, mirror: true),
     );
   }
 }
