@@ -2,12 +2,12 @@
 // import 'package:flutter_webrtc/flutter_webrtc.dart';
 // import 'package:socket_io_client/socket_io_client.dart' as IO;
 
-// class ViewerScreen extends StatefulWidget {
+// class AllbroadcasterScreen extends StatefulWidget {
 //   @override
-//   _ViewerScreenState createState() => _ViewerScreenState();
+//   _AllbroadcasterScreenState createState() => _AllbroadcasterScreenState();
 // }
 
-// class _ViewerScreenState extends State<ViewerScreen> {
+// class _AllbroadcasterScreenState extends State<AllbroadcasterScreen> {
 //   IO.Socket? socket;
 //   RTCPeerConnection? peerConnection;
 //   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
@@ -32,8 +32,8 @@
 //     socket!.connect();
 
 //     socket!.onConnect((_) {
-//       print("Connected as Viewer");
-//       socket!.emit("viewer");
+//       print("Connected as Allbroadcaster");
+//       socket!.emit("Allbroadcaster");
 //     });
 
 //     // Broadcaster sends offer
@@ -97,7 +97,7 @@
 //   @override
 //   Widget build(BuildContext context) {
 //     return Scaffold(
-//       appBar: AppBar(title: Text("Viewer")),
+//       appBar: AppBar(title: Text("Allbroadcaster")),
 //       body: RTCVideoView(_remoteRenderer, mirror: true),
 //     );
 //   }
@@ -106,34 +106,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:view/view.dart';
 
-class Viewer extends StatefulWidget {
-  final String roomId;
-  const Viewer({super.key, required this.roomId});
+class Allbroadcaster extends StatefulWidget {
+  const Allbroadcaster({super.key});
 
   @override
-  State<Viewer> createState() => _ViewerState();
+  State<Allbroadcaster> createState() => _AllbroadcasterState();
 }
 
-class _ViewerState extends State<Viewer> {
+class _AllbroadcasterState extends State<Allbroadcaster> {
   late IO.Socket socket;
+  List<dynamic> allBroadcasters = [];
   RTCPeerConnection? peerConnection;
   MediaStream? localStream;
-  final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
-  final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
+  // final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
+  // final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
   @override
   void initState() {
     super.initState();
-    _localRenderer.initialize();
-    _remoteRenderer.initialize();
+    // _localRenderer.initialize();
+    // _remoteRenderer.initialize();
     connectSocket();
   }
 
   @override
   void dispose() {
-    _localRenderer.dispose();
-    _remoteRenderer.dispose();
+    // _localRenderer.dispose();
+    // _remoteRenderer.dispose();
     peerConnection?.close();
     localStream?.dispose();
     socket.disconnect();
@@ -150,24 +151,40 @@ class _ViewerState extends State<Viewer> {
     socket.onConnect((_) async {
       print("Connected to backend");
 
-      // viewer join room
-      socket.emit("viewer", widget.roomId);
-      await joinBroadcast();
+      // Allbroadcaster join room
+      // socket.emit("Allbroadcaster", widget.roomId);
+      // await joinBroadcast();
 
-      socket.emit("getBroadcasters");
+      socket.on("broadcasterDisconnected", (data) {
+        String roomId = data["roomId"];
+        setState(() {
+          // socket.emit("getBroadcasters");
+        });
+      });
       socket.on("broadcastersList", (data) {
-        print("All broadcasters: $data");
-        setState(() {});
+        setState(() {
+          allBroadcasters = List<dynamic>.from(data);
+        });
+
+        if (allBroadcasters.isNotEmpty) {
+          // Auto-join the first broadcaster
+          socket.emit("viewer", allBroadcasters.first[0]); // roomId
+        }
       });
     });
 
-    // incoming offer for viewer
+    // incoming offer for Allbroadcaster
     socket.on("offer", (data) async {
       print("Received offer: $data");
       var description = RTCSessionDescription(
         data["sdpOffer"]["sdp"],
         data["sdpOffer"]["type"],
       );
+      peerConnection = await createPeerConnection({
+        "iceServers": [
+          {"urls": "stun:stun.l.google.com:19302"},
+        ],
+      });
       await peerConnection?.setRemoteDescription(description);
 
       RTCSessionDescription answer = await peerConnection!.createAnswer();
@@ -201,29 +218,24 @@ class _ViewerState extends State<Viewer> {
       );
     });
   }
-
-  // // ✅ Broadcaster start
-  // Future<void> startBroadcast() async {
+  // ✅ Allbroadcaster join
+  // Future<void> joinBroadcast() async {
   //   peerConnection = await createPeerConnection({
   //     "iceServers": [
   //       {"urls": "stun:stun.l.google.com:19302"},
   //     ],
   //   });
 
-  //   localStream = await navigator.mediaDevices.getUserMedia({
-  //     "video": true,
-  //     "audio": true,
-  //   });
-
-  //   _localRenderer.srcObject = localStream;
-
-  //   localStream?.getTracks().forEach((track) {
-  //     peerConnection?.addTrack(track, localStream!);
-  //   });
+  //   peerConnection?.onTrack = (event) {
+  //     if (event.streams.isNotEmpty) {
+  //       _remoteRenderer.srcObject = event.streams[0];
+  //       setState(() {});
+  //     }
+  //   };
 
   //   peerConnection?.onIceCandidate = (candidate) {
   //     socket.emit("iceCandidate", {
-  //       "targetId": widget.roomId, // viewers listening
+  //       "targetId": widget.roomId, // broadcaster
   //       "iceCandidate": {
   //         "candidate": candidate.candidate,
   //         "sdpMid": candidate.sdpMid,
@@ -231,56 +243,36 @@ class _ViewerState extends State<Viewer> {
   //       },
   //     });
   //   };
-
-  //   // when viewer joins
-  //   socket.on("viewer", (viewerId) async {
-  //     print("New viewer: $viewerId");
-
-  //     RTCSessionDescription offer = await peerConnection!.createOffer();
-  //     await peerConnection!.setLocalDescription(offer);
-
-  //     socket.emit("offer", {
-  //       "viewerId": viewerId,
-  //       "sdpOffer": {"sdp": offer.sdp, "type": offer.type},
-  //     });
-  //   });
   // }
-
-  // ✅ Viewer join
-  Future<void> joinBroadcast() async {
-    peerConnection = await createPeerConnection({
-      "iceServers": [
-        {"urls": "stun:stun.l.google.com:19302"},
-      ],
-    });
-
-    peerConnection?.onTrack = (event) {
-      if (event.streams.isNotEmpty) {
-        _remoteRenderer.srcObject = event.streams[0];
-        setState(() {});
-      }
-    };
-
-    peerConnection?.onIceCandidate = (candidate) {
-      socket.emit("iceCandidate", {
-        "targetId": widget.roomId, // broadcaster
-        "iceCandidate": {
-          "candidate": candidate.candidate,
-          "sdpMid": candidate.sdpMid,
-          "sdpMLineIndex": candidate.sdpMLineIndex,
-        },
-      });
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Viewer")),
-      body: Column(
-        children: [
-          Expanded(child: RTCVideoView(_remoteRenderer, mirror: true)),
-        ],
+      appBar: AppBar(title: Text("Allbroadcaster")),
+      body: GridView.builder(
+        shrinkWrap: true,
+        itemCount: allBroadcasters.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+        ),
+        itemBuilder: (context, index) {
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      Viewer(roomId: allBroadcasters[index][0]),
+                ),
+              );
+            },
+            child: Container(
+              margin: EdgeInsets.all(10),
+              color: Colors.amber,
+              child: Text(allBroadcasters[index][0]),
+            ),
+          );
+        },
       ),
     );
   }

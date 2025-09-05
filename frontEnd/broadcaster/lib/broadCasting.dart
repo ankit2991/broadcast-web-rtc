@@ -56,7 +56,7 @@ class _BroadcasterScreenState extends State<BroadcasterScreen> {
   }
 
   void connectSocket() {
-    socket = IO.io("https://demo.syspaisa.com/", <String, dynamic>{
+    socket = IO.io("http://demo.syspaisa.com/", <String, dynamic>{
       "transports": ["websocket"],
       "autoConnect": false,
     });

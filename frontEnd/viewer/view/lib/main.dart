@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:view/allBroadCaster.dart';
 import 'package:view/view.dart';
 
 void main() {
@@ -11,6 +12,6 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(title: 'Flutter Demo', home: ViewerScreen());
+    return MaterialApp(title: 'Flutter Demo', home: Allbroadcaster());
   }
 }
